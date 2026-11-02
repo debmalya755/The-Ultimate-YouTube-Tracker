@@ -72,7 +72,13 @@ async function postJson<T extends { ok: boolean; error?: string }>(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  const data = (await res.json().catch(() => ({}))) as T;
+  const text = await res.text();
+  let data: T;
+  try {
+    data = JSON.parse(text) as T;
+  } catch {
+    data = { ok: false, error: text.slice(0, 180) || `Request failed (${res.status})` } as T;
+  }
   if (!res.ok) {
     return {
       ok: false,
