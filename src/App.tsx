@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Analytics } from "@vercel/analytics/react";
 import Gate from "./components/Gate";
 import AuthFlow from "./components/AuthFlow";
 import MainSite from "./components/MainSite";
@@ -94,6 +95,7 @@ export default function App() {
           )}
         </AnimatePresence>
       </div>
+      <Analytics />
     </div>
   );
 }
