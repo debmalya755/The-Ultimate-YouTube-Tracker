@@ -70,10 +70,14 @@ export default function AuthFlow(auth: Props) {
     signIn,
     isUsernameFree,
     isEmailFree,
+    remembered,
+    forgetDevice,
     onDone,
   } = auth;
 
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const [mode, setMode] = useState<"signin" | "signup">(
+    remembered ? "signin" : "signup"
+  );
   const [step, setStep] = useState<1 | 2 | 3>(hasPending ? 3 : 1);
 
   const [fullName, setFullName] = useState("");
@@ -83,8 +87,9 @@ export default function AuthFlow(auth: Props) {
   const [avatar, setAvatar] = useState<string | undefined>();
   const [rawPick, setRawPick] = useState<string | null>(null);
 
-  const [ident, setIdent] = useState("");
+  const [ident, setIdent] = useState(remembered?.displayUsername ?? "");
   const [loginPass, setLoginPass] = useState("");
+  const [rememberMe, setRememberMe] = useState(Boolean(remembered));
 
   const [code, setCode] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -149,7 +154,7 @@ export default function AuthFlow(auth: Props) {
 
   const submitVerify = (e: FormEvent) => {
     e.preventDefault();
-    const res = verifyCode(code);
+    const res = verifyCode(code, rememberMe);
     if (!res.ok) setErr(res.error ?? "Verification failed.");
     // success → `user` is set → onDone fires via effect
   };
@@ -158,7 +163,11 @@ export default function AuthFlow(auth: Props) {
     e.preventDefault();
     setBusy(true);
     setErr(null);
-    const res = await signIn(ident, loginPass);
+    const res = await signIn(
+      remembered?.username ?? ident,
+      loginPass,
+      rememberMe
+    );
     setBusy(false);
     if (res.needsVerify) {
       setErr(null);
@@ -184,28 +193,66 @@ export default function AuthFlow(auth: Props) {
             exit={{ opacity: 0, y: -16 }}
             transition={{ duration: 0.5, ease: EASE }}
           >
-            <Head kicker="Returning operator" title="Sign in" />
+            <Head
+              kicker={remembered ? "Trusted device" : "Returning operator"}
+              title="Sign in"
+            />
             <form onSubmit={submitSignIn} className="mt-10 space-y-7">
-              <div>
-                <label className={label} htmlFor="si-id">
-                  Username or email
-                </label>
-                <input
-                  id="si-id"
-                  ref={firstRef}
-                  className={field}
-                  value={ident}
-                  autoComplete="username"
-                  onChange={(e) => setIdent(e.target.value)}
-                  placeholder="deb"
-                />
-              </div>
+              {remembered ? (
+                <div className="flex items-center gap-4 border-b border-bone/15 pb-5">
+                  <div className="h-12 w-12 overflow-hidden rounded-full border border-bone/20 bg-ash">
+                    {remembered.avatar ? (
+                      <img
+                        src={remembered.avatar}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center font-mono text-[10px] text-bone/40">
+                        {remembered.displayUsername.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-mono text-sm text-bone">
+                      {remembered.displayUsername}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        forgetDevice();
+                        setIdent("");
+                        setRememberMe(false);
+                      }}
+                      className="mt-1 font-mono text-[9px] tracking-[0.3em] text-bone/40 uppercase transition-colors hover:text-bone"
+                    >
+                      Use a different account
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className={label} htmlFor="si-id">
+                    Username or email
+                  </label>
+                  <input
+                    id="si-id"
+                    ref={firstRef}
+                    className={field}
+                    value={ident}
+                    autoComplete="username"
+                    onChange={(e) => setIdent(e.target.value)}
+                    placeholder="deb"
+                  />
+                </div>
+              )}
               <div>
                 <label className={label} htmlFor="si-pw">
                   Password
                 </label>
                 <input
                   id="si-pw"
+                  ref={remembered ? firstRef : undefined}
                   type="password"
                   className={field}
                   value={loginPass}
@@ -214,6 +261,15 @@ export default function AuthFlow(auth: Props) {
                   placeholder="••••••••"
                 />
               </div>
+              <label className="flex cursor-pointer items-center gap-3 font-mono text-[9px] tracking-[0.3em] text-bone/50 uppercase">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-[#c41e3a]"
+                />
+                Remember this device — password only next time
+              </label>
 
               {err && (
                 <p className="font-mono text-[9px] tracking-[0.3em] text-blood uppercase">
@@ -235,7 +291,9 @@ export default function AuthFlow(auth: Props) {
                 </button>
                 <button
                   type="submit"
-                  disabled={busy || !ident || !loginPass}
+                  disabled={
+                    busy || !(remembered?.username || ident) || !loginPass
+                  }
                   className="group flex items-center gap-2.5 rounded-full bg-bone px-8 py-3.5 font-mono text-[9px] tracking-[0.3em] text-carbon uppercase transition-colors duration-300 hover:bg-blood hover:text-bone disabled:opacity-35"
                 >
                   {busy ? "Checking…" : "Enter"}
@@ -339,6 +397,15 @@ export default function AuthFlow(auth: Props) {
                   placeholder="At least 8 characters"
                 />
               </div>
+              <label className="flex cursor-pointer items-center gap-3 font-mono text-[9px] tracking-[0.3em] text-bone/50 uppercase sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-[#c41e3a]"
+                />
+                Remember this device — only the password on daily access
+              </label>
             </div>
 
             {err && (

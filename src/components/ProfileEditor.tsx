@@ -94,7 +94,7 @@ export default function ProfileEditor({
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      setErr("A channel needs a name.");
+      setErr("A profile needs a name.");
       return;
     }
     const picked = categories.find((g) => g.id === categoryId);
@@ -123,7 +123,7 @@ export default function ProfileEditor({
       <motion.div
         role="dialog"
         aria-modal="true"
-        aria-label={initial ? "Edit channel" : "Add channel"}
+        aria-label={initial ? "Edit profile" : "Add profile"}
         className="relative max-h-[88dvh] w-full max-w-3xl overflow-y-auto border border-bone/15 bg-ash/95 p-6 sm:p-9"
         initial={{ opacity: 0, y: 26, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -133,10 +133,10 @@ export default function ProfileEditor({
         <div className="flex items-start justify-between gap-6">
           <div>
             <p className="font-mono text-[9px] tracking-[0.45em] text-blood uppercase">
-              {initial ? "Edit channel" : "New channel"}
+              {initial ? "Edit profile" : "New profile"}
             </p>
             <h3 className="mt-3 font-display text-3xl uppercase tracking-[0.03em]">
-              YouTube channel
+              Watcher profile
             </h3>
           </div>
           <button
@@ -188,7 +188,7 @@ export default function ProfileEditor({
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
               <label className={label} htmlFor="pf-name">
-                Channel name *
+                Profile name *
               </label>
               <input
                 id="pf-name"
@@ -458,7 +458,7 @@ export default function ProfileEditor({
                   type="submit"
                   className="rounded-full bg-bone px-7 py-3 font-mono text-[9px] tracking-[0.3em] text-carbon uppercase transition-colors duration-300 hover:bg-blood hover:text-bone"
                 >
-                  {initial ? "Save channel" : "Add channel"}
+                  {initial ? "Save profile" : "Add profile"}
                 </button>
               </div>
             </div>

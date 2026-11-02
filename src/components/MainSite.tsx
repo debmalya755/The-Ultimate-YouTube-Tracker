@@ -21,6 +21,7 @@ import DyingStar from "./DyingStar";
 import StreakBar from "./StreakBar";
 import Clocks from "./Clocks";
 import ProfileEditor from "./ProfileEditor";
+import ChannelEditor from "./ChannelEditor";
 import ChapterEditor from "./ChapterEditor";
 import ProfileDetail from "./ProfileDetail";
 import Analytics from "./Analytics";
@@ -28,7 +29,7 @@ import { ProfileLogo } from "../data/profileLogos";
 import ImageCropper from "./ImageCropper";
 import type { Account } from "../hooks/useAuth";
 import { useProfiles } from "../hooks/useProfiles";
-import type { Chapter, Profile } from "../hooks/useProfiles";
+import type { Chapter, Profile, YtChannel } from "../hooks/useProfiles";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -133,6 +134,10 @@ export default function MainSite({
     addCategory,
     removeCategory,
     profiles,
+    ytChannels,
+    addYtChannel,
+    updateYtChannel,
+    removeYtChannel,
     chapters,
     sessions,
     addProfile,
@@ -149,7 +154,7 @@ export default function MainSite({
 
   type View = "profiles" | "log" | "stats";
   const viewLabel: Record<View, string> = {
-    profiles: "channels",
+    profiles: "profiles",
     log: "watch log",
     stats: "analytics",
   };
@@ -158,10 +163,19 @@ export default function MainSite({
   const [editing, setEditing] = useState<Profile | null>(null);
   const [chapterEditorOpen, setChapterEditorOpen] = useState(false);
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
+  const [channelEditorOpen, setChannelEditorOpen] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<YtChannel | null>(null);
 
   /* --------------------------- drill-down view --------------------------- */
   const [detailId, setDetailId] = useState<string | null>(null);
   const detailProfile = profiles.find((s) => s.id === detailId) ?? null;
+  const detailChannels = useMemo(
+    () =>
+      ytChannels
+        .filter((c) => c.profileId === detailId)
+        .sort((a, b) => a.createdAt - b.createdAt),
+    [ytChannels, detailId]
+  );
   const detailChapters = useMemo(
     () =>
       chapters
@@ -228,7 +242,7 @@ export default function MainSite({
     if (!detailId) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (editorOpen || chapterEditorOpen) return;
+      if (editorOpen || chapterEditorOpen || channelEditorOpen) return;
       const doc = document as Document & { webkitFullscreenElement?: Element | null };
       if (doc.fullscreenElement ?? doc.webkitFullscreenElement) return;
       backToProfiles();
@@ -236,7 +250,7 @@ export default function MainSite({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detailId, editorOpen, chapterEditorOpen]);
+  }, [detailId, editorOpen, chapterEditorOpen, channelEditorOpen]);
 
   /* ----------------------------- focus timer -----------------------------
    * Timestamp-based on purpose: a plain setInterval counter is throttled to
@@ -617,13 +631,12 @@ export default function MainSite({
           <h1 className="font-display uppercase leading-[0.92] tracking-[0.01em]">
             <HeroLine order={0}>
               <span className="text-[clamp(2.1rem,8.2vw,6.8rem)]">
-              Track What
+              The Apt
               </span>
             </HeroLine>
             <HeroLine order={1}>
-              {/* "WATCH" stays solid so the emphasis survives the all-caps face */}
               <span className="text-[clamp(2.1rem,8.2vw,6.8rem)]">
-                <span className="text-outline">you&nbsp;</span>WATCH
+                <span className="text-outline">Tool you&nbsp;</span>Need
               </span>
             </HeroLine>
           </h1>
@@ -676,6 +689,7 @@ export default function MainSite({
           <ProfileDetail
             key="detail"
             profile={detailProfile}
+            channels={detailChannels}
             chapters={detailChapters}
             profileMinutes={stats.byProfile[detailProfile.id] ?? 0}
             minutesByChapter={stats.byChapter}
@@ -686,6 +700,15 @@ export default function MainSite({
               setEditing(detailProfile);
               setEditorOpen(true);
             }}
+            onAddChannel={() => {
+              setEditingChannel(null);
+              setChannelEditorOpen(true);
+            }}
+            onEditChannel={(ch) => {
+              setEditingChannel(ch);
+              setChannelEditorOpen(true);
+            }}
+            onDeleteChannel={removeYtChannel}
             onAddChapter={() => {
               setEditingChapter(null);
               setChapterEditorOpen(true);
@@ -715,11 +738,11 @@ export default function MainSite({
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
               <p className="font-mono text-[10px] tracking-[0.45em] text-blood uppercase">
-                01 — YouTube channels
+                01 — Profiles
               </p>
               <h2 className="mt-6 max-w-3xl font-display text-[clamp(2.2rem,6vw,5rem)] uppercase leading-[0.95]">
-                Channels with
-                <span className="text-outline block">A pulse.</span>
+                Profiles that
+                <span className="text-outline block">Hold it all.</span>
               </h2>
             </div>
             <button
@@ -733,7 +756,7 @@ export default function MainSite({
                 className="h-3.5 w-3.5 transition-transform duration-500 group-hover:rotate-90"
                 strokeWidth={1.5}
               />
-              Add channel
+              Add profile
             </button>
           </div>
         </Reveal>
@@ -891,10 +914,10 @@ export default function MainSite({
                 />
               </span>
               <span className="font-mono text-[10px] tracking-[0.45em] text-bone/35 uppercase">
-                Channel {String(profiles.length + 1).padStart(2, "0")}
+                Profile {String(profiles.length + 1).padStart(2, "0")}
               </span>
               <span className="font-mono text-[9px] tracking-[0.45em] text-bone/20 uppercase">
-                Add channel
+                Add profile
               </span>
             </button>
           </Reveal>
@@ -908,11 +931,11 @@ export default function MainSite({
               >
                 <div className="mx-auto flex aspect-square w-full max-w-[185px] flex-col items-center justify-center gap-3 rounded-full border border-dashed border-bone/[0.08]">
                   <span className="font-mono text-[10px] tracking-[0.45em] text-bone/15 uppercase">
-                    Channel {bay}
+                    Profile {bay}
                   </span>
                   <span className="h-1.5 w-1.5 rotate-45 border border-bone/15" />
                   <span className="font-mono text-[9px] tracking-[0.45em] text-bone/10 uppercase">
-                    Awaiting channel
+                    Awaiting profile
                   </span>
                 </div>
               </Reveal>
@@ -990,7 +1013,7 @@ export default function MainSite({
                   No watch sessions recorded
                 </span>
                 <span className="max-w-xs font-mono text-[9px] tracking-[0.3em] text-bone/20 uppercase">
-                  Start a watch session or tap +15m on a channel
+                  Start a watch session or tap +15m on a profile
                 </span>
               </div>
             ) : (
@@ -1036,7 +1059,7 @@ export default function MainSite({
               onClick={() => navigateTo("profiles")}
               className="group mt-8 inline-flex items-center gap-2 font-mono text-[10px] tracking-[0.35em] text-bone uppercase"
             >
-              Manage channels
+              Manage profiles
               <ArrowUpRight
                 className="h-4 w-4 text-blood transition-transform duration-500 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                 strokeWidth={1.5}
@@ -1060,7 +1083,7 @@ export default function MainSite({
             <button
               type="button"
               onClick={() => navigateTo("profiles")}
-              aria-label="Open channels"
+              aria-label="Open profiles"
               className="transition-colors duration-300 hover:text-bone"
             >
               <Camera className="h-4 w-4" strokeWidth={1.5} />
@@ -1115,6 +1138,22 @@ export default function MainSite({
             onApply={(d) => {
               onUpdateProfile({ avatar: d });
               setAvatarPick(null);
+            }}
+          />
+        )}
+        {channelEditorOpen && detailProfile && (
+          <ChannelEditor
+            key="channel-editor"
+            initial={editingChannel}
+            onCancel={() => {
+              setChannelEditorOpen(false);
+              setEditingChannel(null);
+            }}
+            onSave={(draft) => {
+              if (editingChannel) updateYtChannel(editingChannel.id, draft);
+              else addYtChannel(detailProfile.id, draft);
+              setChannelEditorOpen(false);
+              setEditingChannel(null);
             }}
           />
         )}

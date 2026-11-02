@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { ChapterCover } from "../data/chapterCovers";
 import { ProfileLogo } from "../data/profileLogos";
-import type { Chapter, Session, Profile } from "../hooks/useProfiles";
+import type { Chapter, Session, Profile, YtChannel } from "../hooks/useProfiles";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -30,6 +30,7 @@ function whenLabel(ts: number) {
 
 interface Props {
   profile: Profile;
+  channels: YtChannel[];
   chapters: Chapter[];
   profileMinutes: number;
   minutesByChapter: Record<string, number>;
@@ -37,6 +38,9 @@ interface Props {
   activeChapterId: string;
   onBack: () => void;
   onEditProfile: () => void;
+  onAddChannel: () => void;
+  onEditChannel: (ch: YtChannel) => void;
+  onDeleteChannel: (id: string) => void;
   onAddChapter: () => void;
   onEditChapter: (ch: Chapter) => void;
   onDeleteChapter: (id: string) => void;
@@ -46,6 +50,7 @@ interface Props {
 
 export default function ProfileDetail({
   profile,
+  channels,
   chapters,
   profileMinutes,
   minutesByChapter,
@@ -53,6 +58,9 @@ export default function ProfileDetail({
   activeChapterId,
   onBack,
   onEditProfile,
+  onAddChannel,
+  onEditChannel,
+  onDeleteChannel,
   onAddChapter,
   onEditChapter,
   onDeleteChapter,
@@ -90,14 +98,14 @@ export default function ProfileDetail({
             className="h-4 w-4 text-blood transition-transform duration-300 group-hover:-translate-x-1"
             strokeWidth={1.5}
           />
-          All channels
+          All profiles
         </button>
         <button
           onClick={onEditProfile}
           className="flex items-center gap-2 rounded-full border border-bone/20 px-5 py-2.5 font-mono text-[9px] tracking-[0.3em] text-bone/70 uppercase transition-colors duration-300 hover:border-bone/60 hover:text-bone"
         >
           <Pencil className="h-3 w-3" strokeWidth={1.5} />
-          Edit channel
+          Edit profile
         </button>
       </div>
 
@@ -152,6 +160,92 @@ export default function ProfileDetail({
             />
           </div>
         </div>
+      </div>
+
+      {/* channels storehouse */}
+      <div className="mt-16 flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <p className="font-mono text-[10px] tracking-[0.45em] text-blood uppercase">
+            Channels — {String(channels.length).padStart(2, "0")}
+          </p>
+          <h3 className="mt-4 font-display text-[clamp(1.8rem,4.5vw,3.4rem)] uppercase leading-none">
+            Channel vault<span className="text-blood">.</span>
+          </h3>
+        </div>
+        <button
+          onClick={onAddChannel}
+          className="group flex items-center gap-2.5 rounded-full border border-bone/25 px-6 py-3 font-mono text-[9px] tracking-[0.3em] text-bone uppercase transition-all duration-500 hover:border-blood hover:bg-blood"
+        >
+          <Plus
+            className="h-3.5 w-3.5 transition-transform duration-500 group-hover:rotate-90"
+            strokeWidth={1.5}
+          />
+          Add channel
+        </button>
+      </div>
+
+      <div className="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {channels.map((ch) => (
+          <div
+            key={ch.id}
+            className="group relative border border-bone/10 bg-ash/40 p-4 transition-colors hover:border-bone/30"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-bone/15 bg-carbon">
+                {ch.img ? (
+                  <img src={ch.img} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center font-mono text-[9px] text-bone/30">
+                    {ch.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-display text-lg uppercase leading-none">
+                  {ch.name}
+                </p>
+                {ch.tag && (
+                  <p className="mt-1.5 truncate font-mono text-[9px] tracking-[0.25em] text-bone/40 uppercase">
+                    {ch.tag}
+                  </p>
+                )}
+              </div>
+            </div>
+            {ch.url && (
+              <a
+                href={ch.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 block truncate font-mono text-[9px] tracking-[0.2em] text-blood/70 uppercase hover:text-blood"
+              >
+                Open on YouTube
+              </a>
+            )}
+            <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+              <button
+                onClick={() => onEditChannel(ch)}
+                aria-label={`Edit ${ch.name}`}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-bone/20 bg-black/50"
+              >
+                <Pencil className="h-3 w-3" strokeWidth={1.5} />
+              </button>
+              <button
+                onClick={() => onDeleteChannel(ch.id)}
+                aria-label={`Delete ${ch.name}`}
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-bone/20 bg-black/50 hover:border-blood"
+              >
+                <Trash2 className="h-3 w-3" strokeWidth={1.5} />
+              </button>
+            </div>
+          </div>
+        ))}
+        <button
+          onClick={onAddChannel}
+          className="flex min-h-[108px] flex-col items-center justify-center gap-2 border border-dashed border-bone/15 font-mono text-[9px] tracking-[0.3em] text-bone/35 uppercase transition-colors hover:border-blood/50 hover:text-bone"
+        >
+          <Plus className="h-4 w-4" strokeWidth={1.5} />
+          Add channel
+        </button>
       </div>
 
       {/* playlist header */}

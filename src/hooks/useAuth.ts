@@ -36,6 +36,14 @@ export interface SignUpDraft {
 const A_KEY = "debos.accounts.v1";
 const S_KEY = "debos.session.v1";
 const P_KEY = "debos.pending.v1";
+const D_KEY = "debos.device.v1";
+
+export interface RememberedDevice {
+  accountId: string;
+  username: string;
+  displayUsername: string;
+  avatar?: string;
+}
 
 const CODE_TTL = 10 * 60 * 1000; // 10 minutes
 const MAX_ATTEMPTS = 5;
@@ -105,6 +113,35 @@ function readAccounts(): Account[] {
   }
 }
 
+function readDevice(): RememberedDevice | null {
+  try {
+    const raw = localStorage.getItem(D_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw) as RememberedDevice;
+    return typeof d?.accountId === "string" ? d : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeDevice(d: RememberedDevice | null) {
+  try {
+    if (d) localStorage.setItem(D_KEY, JSON.stringify(d));
+    else localStorage.removeItem(D_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function snapshotDevice(account: Account): RememberedDevice {
+  return {
+    accountId: account.id,
+    username: account.username,
+    displayUsername: account.displayUsername,
+    avatar: account.avatar,
+  };
+}
+
 function readPending(): Pending | null {
   try {
     const raw = localStorage.getItem(P_KEY);
@@ -122,12 +159,19 @@ export function useAuth() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [user, setUser] = useState<Account | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [device, setDevice] = useState<RememberedDevice | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     const list = readAccounts();
     setAccounts(list);
     setPending(readPending());
+    const remembered = readDevice();
+    if (remembered && list.some((a) => a.id === remembered.accountId)) {
+      setDevice(remembered);
+    } else if (remembered) {
+      writeDevice(null);
+    }
     try {
       const sid = localStorage.getItem(S_KEY);
       const found = sid ? list.find((a) => a.id === sid) : undefined;
@@ -219,8 +263,19 @@ export function useAuth() {
     [accounts, isUsernameFree, isEmailFree, persist, savePending]
   );
 
+  const rememberAccount = useCallback((account: Account) => {
+    const snap = snapshotDevice(account);
+    writeDevice(snap);
+    setDevice(snap);
+  }, []);
+
+  const forgetDevice = useCallback(() => {
+    writeDevice(null);
+    setDevice(null);
+  }, []);
+
   const verifyCode = useCallback(
-    (entered: string): { ok: boolean; error?: string } => {
+    (entered: string, remember = false): { ok: boolean; error?: string } => {
       if (!pending) return { ok: false, error: "Nothing awaiting verification." };
       if (Date.now() > pending.expires)
         return { ok: false, error: "That code expired — request a new one." };
@@ -250,10 +305,11 @@ export function useAuth() {
         } catch {
           /* ignore */
         }
+        if (remember) rememberAccount(account);
       }
       return { ok: true };
     },
-    [pending, accounts, persist, savePending]
+    [pending, accounts, persist, savePending, rememberAccount]
   );
 
   const resendCode = useCallback(() => {
@@ -276,7 +332,8 @@ export function useAuth() {
   const signIn = useCallback(
     async (
       identifier: string,
-      password: string
+      password: string,
+      remember = false
     ): Promise<{ ok: boolean; error?: string; needsVerify?: boolean }> => {
       const key = identifier.trim().toLowerCase();
       const account = accounts.find(
@@ -304,9 +361,11 @@ export function useAuth() {
       } catch {
         /* ignore */
       }
+      if (remember) rememberAccount(account);
+      else forgetDevice();
       return { ok: true };
     },
-    [accounts, savePending]
+    [accounts, savePending, rememberAccount, forgetDevice]
   );
 
   const signOut = useCallback(() => {
@@ -349,5 +408,8 @@ export function useAuth() {
     updateProfile,
     isUsernameFree,
     isEmailFree,
+    remembered: device,
+    rememberAccount,
+    forgetDevice,
   };
 }

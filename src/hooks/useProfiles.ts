@@ -42,6 +42,19 @@ export interface Chapter {
 
 export type ChapterDraft = Omit<Chapter, "id" | "profileId" | "createdAt">;
 
+/** A YouTube channel stored inside a profile. */
+export interface YtChannel {
+  id: string;
+  profileId: string;
+  name: string;
+  tag?: string;
+  url?: string;
+  img?: string;
+  createdAt: number;
+}
+
+export type YtChannelDraft = Omit<YtChannel, "id" | "profileId" | "createdAt">;
+
 export interface Session {
   id: string;
   profileId: string;
@@ -54,6 +67,7 @@ export interface Session {
 const keysFor = (uid: string) => ({
   gKey: `debos.categories.v1:${uid}`,
   sKey: `debos.profiles.v1:${uid}`,
+  chKey: `debos.ytchannels.v1:${uid}`,
   cKey: `debos.chapters.v1:${uid}`,
   lKey: `debos.sessions.v1:${uid}`,
 });
@@ -137,6 +151,13 @@ const isChapter = (v: unknown): v is Chapter =>
   typeof (v as Chapter).profileId === "string" &&
   typeof (v as Chapter).name === "string";
 
+const isYtChannel = (v: unknown): v is YtChannel =>
+  typeof v === "object" &&
+  v !== null &&
+  typeof (v as YtChannel).id === "string" &&
+  typeof (v as YtChannel).profileId === "string" &&
+  typeof (v as YtChannel).name === "string";
+
 /** local YYYY-MM-DD */
 export const dayKey = (ts: number) => {
   const d = new Date(ts);
@@ -172,9 +193,10 @@ export function fileToImageData(file: File, max = 1000): Promise<string> {
 }
 
 export function useProfiles(uid: string = "anon") {
-  const { gKey, sKey, cKey, lKey } = keysFor(uid);
+  const { gKey, sKey, chKey, cKey, lKey } = keysFor(uid);
   const [categories, setCategories] = useState<Category[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [ytChannels, setYtChannels] = useState<YtChannel[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -188,10 +210,11 @@ export function useProfiles(uid: string = "anon") {
     migrate(uid);
     setCategories(read(gKey, isCategory));
     setProfiles(read(sKey, isProfile));
+    setYtChannels(read(chKey, isYtChannel));
     setChapters(read(cKey, isChapter));
     setSessions(read(lKey, isSession));
     setHydrated(uid);
-  }, [uid, gKey, sKey, cKey, lKey]);
+  }, [uid, gKey, sKey, chKey, cKey, lKey]);
 
   /* Persistence lives in effects, not inside state updaters: updaters must be
      pure (StrictMode invokes them twice) and calling setError from one warns
@@ -214,6 +237,11 @@ export function useProfiles(uid: string = "anon") {
     if (hydrated !== uid) return;
     save(sKey, profiles);
   }, [profiles, hydrated, uid, sKey, save]);
+
+  useEffect(() => {
+    if (hydrated !== uid) return;
+    save(chKey, ytChannels);
+  }, [ytChannels, hydrated, uid, chKey, save]);
 
   useEffect(() => {
     if (hydrated !== uid) return;
@@ -250,6 +278,7 @@ export function useProfiles(uid: string = "anon") {
         const next = cur.filter((s) => s.id !== id);
         return next;
       });
+      setYtChannels((cur) => cur.filter((c) => c.profileId !== id));
       setChapters((cur) => {
         const next = cur.filter((c) => c.profileId !== id);
         return next;
@@ -298,6 +327,21 @@ export function useProfiles(uid: string = "anon") {
     setProfiles((cur) =>
       cur.map((p) => (p.categoryId === id ? { ...p, categoryId: undefined } : p))
     );
+  }, []);
+
+  const addYtChannel = useCallback((profileId: string, draft: YtChannelDraft) => {
+    const row = { ...draft, id: newId("yt"), profileId, createdAt: Date.now() };
+    setYtChannels((cur) => [...cur, row]);
+  }, []);
+
+  const updateYtChannel = useCallback((id: string, draft: YtChannelDraft) => {
+    setYtChannels((cur) =>
+      cur.map((c) => (c.id === id ? { ...c, ...draft } : c))
+    );
+  }, []);
+
+  const removeYtChannel = useCallback((id: string) => {
+    setYtChannels((cur) => cur.filter((c) => c.id !== id));
   }, []);
 
   /* ------------------------------- chapters ------------------------------ */
@@ -437,6 +481,10 @@ export function useProfiles(uid: string = "anon") {
     addCategory,
     removeCategory,
     profiles,
+    ytChannels,
+    addYtChannel,
+    updateYtChannel,
+    removeYtChannel,
     chapters,
     sessions,
     addProfile,

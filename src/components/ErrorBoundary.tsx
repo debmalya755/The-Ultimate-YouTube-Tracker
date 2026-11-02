@@ -39,7 +39,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             Something broke
           </h1>
           <p className="mt-5 text-sm leading-relaxed text-smoke">
-            The interface hit an unexpected error. Your channels, playlists and
+            The interface hit an unexpected error. Your profiles, channels, playlists and
             logged hours are stored locally and have not been touched.
           </p>
 
