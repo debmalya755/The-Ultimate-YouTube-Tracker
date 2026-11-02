@@ -1,5 +1,10 @@
 node_modules/
 dist/
 .vite/
+.vercel/
+.vercel-global/
 *.local
 
+
+.vercel
+.env*
