@@ -8,13 +8,10 @@ import {
   Camera,
   Crosshair,
   Lock,
-  LogOut,
   Pencil,
   Plus,
   Radio,
   Trash2,
-  UserPlus,
-  Zap,
 } from "lucide-react";
 import Grain from "./Grain";
 import DyingStar from "./DyingStar";
@@ -26,10 +23,10 @@ import ChapterEditor from "./ChapterEditor";
 import ProfileDetail from "./ProfileDetail";
 import Analytics from "./Analytics";
 import { ProfileLogo } from "../data/profileLogos";
-import ImageCropper from "./ImageCropper";
-import type { Account } from "../hooks/useAuth";
+import ProfileLock from "./ProfileLock";
 import { useProfiles } from "../hooks/useProfiles";
 import type { Chapter, Profile, YtChannel } from "../hooks/useProfiles";
+import { hashPassword, passwordMatches, randomSalt } from "../utils/password";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -110,24 +107,22 @@ function HeroLine({ children, order }: { children: ReactNode; order: number }) {
 /* ================================= site ================================== */
 
 interface MainSiteProps {
-  user: Account | null;
-  /** running without an account via the gate switch */
-  godMode?: boolean;
-  onExitGod?: () => void;
-  onUpdateProfile: (p: Partial<Pick<Account, "fullName" | "avatar">>) => void;
-  onSignOut: () => void;
   onRelock: () => void;
 }
 
-export default function MainSite({
-  user,
-  godMode = false,
-  onExitGod,
-  onUpdateProfile,
-  onSignOut,
-  onRelock,
-}: MainSiteProps) {
-  const [avatarPick, setAvatarPick] = useState<string | null>(null);
+const UNLOCK_KEY = "debos.unlocked.v1";
+
+function readUnlocked(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(UNLOCK_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export default function MainSite({ onRelock }: MainSiteProps) {
   const {
     hydrated,
     categories,
@@ -150,7 +145,7 @@ export default function MainSite({
     removeSession,
     stats,
     error: storageError,
-  } = useProfiles(user?.id);
+  } = useProfiles("anon");
 
   type View = "profiles" | "log" | "stats";
   const viewLabel: Record<View, string> = {
@@ -165,6 +160,27 @@ export default function MainSite({
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
   const [channelEditorOpen, setChannelEditorOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<YtChannel | null>(null);
+  const [unlocked, setUnlocked] = useState<Set<string>>(readUnlocked);
+  const [lockPrompt, setLockPrompt] = useState<{
+    id: string;
+    mode: "unlock" | "set";
+  } | null>(null);
+  const afterUnlock = useRef<(() => void) | null>(null);
+
+  const persistUnlocked = (next: Set<string>) => {
+    setUnlocked(next);
+    try {
+      sessionStorage.setItem(UNLOCK_KEY, JSON.stringify([...next]));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const markUnlocked = (id: string) => {
+    const next = new Set(unlocked);
+    next.add(id);
+    persistUnlocked(next);
+  };
 
   /* --------------------------- drill-down view --------------------------- */
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -208,7 +224,7 @@ export default function MainSite({
     window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 0);
   };
 
-  const openProfile = (id: string) => {
+  const goIntoProfile = (id: string) => {
     setDetailId(id);
     setTimeout(
       () =>
@@ -217,6 +233,24 @@ export default function MainSite({
           ?.scrollIntoView({ behavior: "smooth", block: "start" }),
       140
     );
+  };
+
+  const requireUnlocked = (id: string, then: () => void) => {
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) return;
+    if (unlocked.has(id) && profile.passwordHash) {
+      then();
+      return;
+    }
+    afterUnlock.current = then;
+    setLockPrompt({
+      id,
+      mode: profile.passwordHash ? "unlock" : "set",
+    });
+  };
+
+  const openProfile = (id: string) => {
+    requireUnlocked(id, () => goIntoProfile(id));
   };
 
   const backToProfiles = () => {
@@ -259,7 +293,7 @@ export default function MainSite({
    * seconds, `startedAt` the epoch ms of the current run — elapsed is always
    * derived, so throttling can never lose time.
    */
-  const TIMER_KEY = `debos.timer.v1:${user?.id ?? "anon"}`;
+  const TIMER_KEY = "debos.timer.v1:anon";
   /* read synchronously during the first render — restoring in an effect would
      let the save effect flush defaults over the stored session first */
   const restored = useRef(
@@ -444,69 +478,6 @@ export default function MainSite({
           </div>
 
           <div className="flex items-center gap-3">
-            {godMode && (
-              <>
-                <span className="hidden items-center gap-1.5 rounded-full border border-blood/50 bg-blood/15 px-3 py-1.5 font-mono text-[9px] tracking-[0.3em] text-blood uppercase sm:flex">
-                  <Zap className="h-3 w-3" strokeWidth={1.5} fill="currentColor" />
-                  God-mode
-                </span>
-                {onExitGod && (
-                  <button
-                    onClick={onExitGod}
-                    title="Create an account to save your channel tracker"
-                    className="flex items-center gap-2 rounded-full border border-bone/30 px-4 py-2 font-mono text-[10px] tracking-[0.3em] uppercase transition-all duration-500 hover:border-blood hover:bg-blood"
-                  >
-                    <UserPlus className="h-3 w-3" strokeWidth={1.5} />
-                    <span className="hidden sm:inline">Sign in</span>
-                  </button>
-                )}
-              </>
-            )}
-            {user && (
-              <>
-                {/* avatar — click to re-crop a new one */}
-                <label
-                    title="Change account picture"
-                  className="relative h-9 w-9 cursor-pointer overflow-hidden rounded-full border border-bone/30 bg-ash"
-                >
-                  {user.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.fullName}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center font-mono text-[10px] text-bone/70">
-                      {user.fullName.slice(0, 1).toUpperCase()}
-                    </span>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      e.currentTarget.value = "";
-                      if (!f) return;
-                      const r = new FileReader();
-                      r.onload = () => setAvatarPick(String(r.result));
-                      r.readAsDataURL(f);
-                    }}
-                  />
-                </label>
-                <span className="hidden font-mono text-[10px] tracking-[0.25em] text-bone/70 uppercase lg:inline">
-                  @{user.displayUsername}
-                </span>
-                <button
-                  onClick={onSignOut}
-                  title="Sign out"
-                  className="flex items-center gap-2 rounded-full border border-bone/30 px-4 py-2 font-mono text-[10px] tracking-[0.3em] uppercase transition-all duration-500 hover:border-blood hover:bg-blood"
-                >
-                  <LogOut className="h-3 w-3" strokeWidth={1.5} />
-                  <span className="hidden sm:inline">Sign out</span>
-                </button>
-              </>
-            )}
             <button
               onClick={onRelock}
               title="Lock session"
@@ -621,11 +592,7 @@ export default function MainSite({
             transition={{ delay: 1.3, duration: 0.8 }}
           >
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-blood" />
-            {user
-              ? `Dashboard loaded — ${user.fullName.split(" ")[0]}`
-              : godMode
-                ? "God-mode — no account attached"
-                : "Dashboard loaded — viewer 0026"}
+            Dashboard loaded — profiles locked individually
           </motion.p>
 
           <h1 className="font-display uppercase leading-[0.92] tracking-[0.01em]">
@@ -783,17 +750,21 @@ export default function MainSite({
                 <div className="group relative block">
                   <div className="absolute right-0 top-1 z-20 flex gap-1.5 opacity-0 transition-opacity duration-300 focus-within:opacity-100 group-hover:opacity-100">
                     <button
-                      onClick={() => {
-                        setEditing(sub);
-                        setEditorOpen(true);
-                      }}
+                      onClick={() =>
+                        requireUnlocked(sub.id, () => {
+                          setEditing(sub);
+                          setEditorOpen(true);
+                        })
+                      }
                       aria-label={`Edit ${sub.name}`}
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-bone/30 bg-black/70 text-bone backdrop-blur-sm transition-colors duration-300 hover:border-bone hover:bg-black/90"
                     >
                       <Pencil className="h-3 w-3" strokeWidth={1.5} />
                     </button>
                     <button
-                      onClick={() => removeProfile(sub.id)}
+                      onClick={() =>
+                        requireUnlocked(sub.id, () => removeProfile(sub.id))
+                      }
                       aria-label={`Delete ${sub.name}`}
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-bone/30 bg-black/70 text-bone backdrop-blur-sm transition-colors duration-300 hover:border-blood hover:bg-blood"
                     >
@@ -872,10 +843,12 @@ export default function MainSite({
 
                   <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
                     <button
-                      onClick={() => {
-                        retarget(sub.id, "");
-                        scrollToTracker();
-                      }}
+                      onClick={() =>
+                        requireUnlocked(sub.id, () => {
+                          retarget(sub.id, "");
+                          scrollToTracker();
+                        })
+                      }
                       className="flex items-center gap-1 rounded-full border border-bone/15 px-2.5 py-1 font-mono text-[8px] tracking-[0.15em] text-bone/60 uppercase transition-colors duration-300 hover:border-blood hover:bg-blood hover:text-bone"
                     >
                       <Crosshair className="h-3 w-3" strokeWidth={1.5} />
@@ -884,7 +857,9 @@ export default function MainSite({
                     {[15, 30, 60].map((m) => (
                       <button
                         key={m}
-                        onClick={() => logSession(sub.id, m)}
+                        onClick={() =>
+                          requireUnlocked(sub.id, () => logSession(sub.id, m))
+                        }
                         className="rounded-full border border-bone/15 px-2.5 py-1 font-mono text-[8px] tracking-[0.15em] text-bone/60 uppercase transition-colors duration-300 hover:border-blood hover:bg-blood hover:text-bone"
                       >
                         +{m}m
@@ -1123,21 +1098,62 @@ export default function MainSite({
               setEditing(null);
             }}
             onSave={(draft) => {
-              if (editing) updateProfile(editing.id, draft);
-              else addProfile(draft);
+              if (editing) {
+                updateProfile(editing.id, draft);
+                if (draft.passwordHash) markUnlocked(editing.id);
+              } else {
+                const id = addProfile(draft);
+                if (id) markUnlocked(id);
+              }
               setEditorOpen(false);
               setEditing(null);
             }}
           />
         )}
-        {avatarPick && (
-          <ImageCropper
-            key="avatar-cropper"
-            src={avatarPick}
-            onCancel={() => setAvatarPick(null)}
-            onApply={(d) => {
-              onUpdateProfile({ avatar: d });
-              setAvatarPick(null);
+        {lockPrompt && (
+          <ProfileLock
+            key="profile-lock"
+            name={profiles.find((p) => p.id === lockPrompt.id)?.name ?? "Profile"}
+            mode={lockPrompt.mode}
+            onCancel={() => {
+              afterUnlock.current = null;
+              setLockPrompt(null);
+            }}
+            onSubmit={async (password) => {
+              const profile = profiles.find((p) => p.id === lockPrompt.id);
+              if (!profile) return "Profile missing.";
+              if (lockPrompt.mode === "set") {
+                const salt = randomSalt();
+                const passwordHash = await hashPassword(password, salt);
+                updateProfile(profile.id, {
+                  ...profile,
+                  passwordHash,
+                  passwordSalt: salt,
+                });
+                markUnlocked(profile.id);
+                const then = afterUnlock.current;
+                afterUnlock.current = null;
+                setLockPrompt(null);
+                then?.();
+                return null;
+              }
+              if (
+                !profile.passwordHash ||
+                !profile.passwordSalt ||
+                !(await passwordMatches(
+                  password,
+                  profile.passwordSalt,
+                  profile.passwordHash
+                ))
+              ) {
+                return "Wrong password.";
+              }
+              markUnlocked(profile.id);
+              const then = afterUnlock.current;
+              afterUnlock.current = null;
+              setLockPrompt(null);
+              then?.();
+              return null;
             }}
           />
         )}

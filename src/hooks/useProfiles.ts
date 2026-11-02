@@ -21,6 +21,9 @@ export interface Profile {
   img?: string;
   /** index into the 500 generated round emblems */
   cover?: number;
+  /** per-profile lock; absent on legacy profiles until the user sets one */
+  passwordHash?: string;
+  passwordSalt?: string;
   createdAt: number;
 }
 
@@ -255,9 +258,9 @@ export function useProfiles(uid: string = "anon") {
 
   const addProfile = useCallback(
     (draft: ProfileDraft) => {
-      // built outside the updater so the updater stays pure
       const row = { ...draft, id: newId("s"), createdAt: Date.now() };
       setProfiles((cur) => [...cur, row]);
+      return row.id;
     },
     []
   );

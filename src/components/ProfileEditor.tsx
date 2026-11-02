@@ -14,6 +14,7 @@ import {
 import CustomSelect from "./CustomSelect";
 import { fileToImageData } from "../hooks/useProfiles";
 import type { Category, Profile, ProfileDraft } from "../hooks/useProfiles";
+import { hashPassword, randomSalt } from "../utils/password";
 import { LOGO_COUNT, ProfileLogo } from "../data/profileLogos";
 
 const PER_PAGE = 36;
@@ -56,6 +57,8 @@ export default function ProfileEditor({
   const [name, setName] = useState(initial?.name ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [focus, setFocus] = useState(initial?.focus ?? "");
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   // inline "new pair" composer — the only place a code is ever assigned
   const [makingSet, setMakingSet] = useState(false);
   const [newCat, setNewCat] = useState("");
@@ -91,23 +94,41 @@ export default function ProfileEditor({
 
   const picked = categories.find((g) => g.id === categoryId) ?? null;
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setErr("A profile needs a name.");
       return;
     }
+    const needsPassword = !initial?.passwordHash;
+    if (needsPassword || password) {
+      if (password.length < 4) {
+        setErr("Profile password must be at least 4 characters.");
+        return;
+      }
+      if (password !== password2) {
+        setErr("Passwords do not match.");
+        return;
+      }
+    }
     const picked = categories.find((g) => g.id === categoryId);
-    onSave({
+    const draft: ProfileDraft = {
       img: img.trim() || undefined,
       cover,
       name: name.trim(),
       categoryId: picked ? picked.id : undefined,
-      // snapshot so the card still reads correctly if the set changes later
       code: picked?.code,
       tag: picked?.name,
       focus: focus.trim(),
-    });
+      passwordHash: initial?.passwordHash,
+      passwordSalt: initial?.passwordSalt,
+    };
+    if (password) {
+      const salt = randomSalt();
+      draft.passwordSalt = salt;
+      draft.passwordHash = await hashPassword(password, salt);
+    }
+    onSave(draft);
   };
 
   return (
@@ -197,6 +218,36 @@ export default function ProfileEditor({
                 value={name}
                 placeholder="MKBHD"
                 onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className={label} htmlFor="pf-pass">
+                {initial?.passwordHash ? "New password" : "Profile password *"}
+              </label>
+              <input
+                id="pf-pass"
+                type="password"
+                className={field}
+                value={password}
+                autoComplete="new-password"
+                placeholder={
+                  initial?.passwordHash ? "Leave blank to keep" : "Min 4 characters"
+                }
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={label} htmlFor="pf-pass2">
+                Confirm password
+              </label>
+              <input
+                id="pf-pass2"
+                type="password"
+                className={field}
+                value={password2}
+                autoComplete="new-password"
+                onChange={(e) => setPassword2(e.target.value)}
               />
             </div>
 
