@@ -1,0 +1,342 @@
+@import url("https://fonts.googleapis.com/css2?family=Anton&family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Anton", "Arial Narrow", sans-serif;
+  --font-body: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-carbon: #050506;
+  --color-ash: #101012;
+  --color-smoke: #8b8b93;
+  --color-bone: #ededf0;
+  --color-blood: #e10600;
+
+  --animate-marquee: marquee 28s linear infinite;
+  --animate-grain: grain 7s steps(8) infinite;
+  --animate-blink: blink 1.1s steps(1) infinite;
+  --animate-scan: scan 7s linear infinite;
+
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes grain {
+    0%,
+    100% {
+      transform: translate(0, 0);
+    }
+    12% {
+      transform: translate(-6%, -9%);
+    }
+    25% {
+      transform: translate(4%, -12%);
+    }
+    37% {
+      transform: translate(-9%, 5%);
+    }
+    50% {
+      transform: translate(8%, 10%);
+    }
+    62% {
+      transform: translate(-4%, 12%);
+    }
+    75% {
+      transform: translate(10%, -4%);
+    }
+    87% {
+      transform: translate(-10%, -6%);
+    }
+  }
+  @keyframes blink {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+  /* transform-based — stays on the compositor, zero layout thrash */
+  @keyframes scan {
+    0% {
+      transform: translateY(-150%);
+    }
+    100% {
+      transform: translateY(820%);
+    }
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* custom select dropdown scrollbar */
+.custom-select-scroll::-webkit-scrollbar { width: 3px; }
+.custom-select-scroll::-webkit-scrollbar-track { background: transparent; }
+.custom-select-scroll::-webkit-scrollbar-thumb { background: rgba(237, 237, 240, 0.15); border-radius: 99px; }
+.custom-select-scroll::-webkit-scrollbar-thumb:hover { background: rgba(237, 237, 240, 0.3); }
+
+/* horizontal subject rail — slim themed scrollbar */
+.scroll-rail {
+  scrollbar-width: thin;
+  scrollbar-color: #2a2a2e transparent;
+  scroll-padding-left: 1.5rem;
+  /* momentum on iOS + don't drag the page when the rail ends */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+}
+.scroll-rail::-webkit-scrollbar {
+  height: 3px;
+}
+.scroll-rail::-webkit-scrollbar-track {
+  background: rgba(237, 237, 240, 0.06);
+}
+.scroll-rail::-webkit-scrollbar-thumb {
+  background: #3a3a40;
+  border-radius: 99px;
+  transition: background 240ms ease;
+}
+.scroll-rail::-webkit-scrollbar-thumb:hover {
+  background: #e10600;
+}
+
+/* fullscreen surface — letterbox to true black, fill the panel */
+:fullscreen,
+:-webkit-full-screen {
+  background: #050506;
+  width: 100%;
+  height: 100%;
+}
+:fullscreen video,
+:-webkit-full-screen video {
+  /* keep the compositor from resampling twice on big panels */
+  backface-visibility: hidden;
+}
+
+/* dying star — compositor-only motion */
+@keyframes star-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes star-drift {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.09);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+@keyframes star-pulse {
+  0%,
+  100% {
+    opacity: 0.82;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+@keyframes star-breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+@keyframes star-shock {
+  0% {
+    r: 118;
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0;
+  }
+  100% {
+    r: 178;
+    opacity: 0;
+  }
+}
+
+/* plasma shells — rotate the pre-rasterized textures */
+.star-shell-a {
+  animation: star-spin 52s linear infinite;
+}
+.star-shell-b {
+  animation: star-drift 34s linear infinite reverse;
+}
+.star-shell-c {
+  animation: star-spin 19s linear infinite;
+}
+.star-core {
+  animation: star-pulse 5.4s ease-in-out infinite;
+}
+.star-corona {
+  animation: star-breathe 7.2s ease-in-out infinite;
+}
+
+/* svg overlays rotate about the star centre */
+.star-rotor,
+.star-rotor-rev,
+.star-rotor-slow,
+.star-shock {
+  transform-box: view-box;
+  transform-origin: 200px 200px;
+}
+.star-rotor {
+  animation: star-spin 46s linear infinite;
+}
+.star-rotor-rev {
+  animation: star-spin 31s linear infinite reverse;
+}
+.star-rotor-slow {
+  animation: star-spin 78s linear infinite;
+}
+.star-shock {
+  animation: star-shock 6.5s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  button:not(:disabled):active,
+  label:active {
+    transform: none;
+  }
+  .star-shell-a,
+  .star-shell-b,
+  .star-shell-c,
+  .star-core,
+  .star-corona,
+  .star-rotor,
+  .star-rotor-rev,
+  .star-rotor-slow,
+  .star-shock {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background: #050506;
+  color: #ededf0;
+  font-family: var(--font-body);
+  overflow-x: hidden;
+  /* crisper type — noticeably smoother on dark backgrounds */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* kills the blue flash when tapping on mobile */
+  -webkit-tap-highlight-color: transparent;
+  /* stops the page rubber-banding when a rail hits its end */
+  overscroll-behavior-y: none;
+}
+
+/* reserve the scrollbar gutter so switching tabs never shifts the layout */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* every interactive element eases the same way unless told otherwise */
+button,
+a,
+select,
+input,
+label,
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* keyboard focus should be obvious but never ugly — and never on mouse click */
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px #050506,
+    0 0 0 3px rgba(225, 6, 0, 0.65);
+  border-radius: 2px;
+  transition: box-shadow 160ms ease-out;
+}
+
+/* pressed feedback for anything clickable that is not a motion component */
+button:not(:disabled):active,
+label:active {
+  transform: scale(0.985);
+}
+button,
+label {
+  transition:
+    transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* images fade in instead of popping */
+img {
+  -webkit-user-drag: none;
+}
+
+::selection {
+  background: #e10600;
+  color: #fff;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #050506;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a2e;
+  border-radius: 99px;
+  transition: background 240ms ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f47;
+}
+
+/* film grain texture */
+.noise-bg {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 280px 280px;
+}
+
+/* outlined display text */
+.text-outline {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(237, 237, 240, 0.35);
+}
+
+/* subtle CRT scanlines */
+.scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.28) 3px,
+    rgba(0, 0, 0, 0.28) 4px
+  );
+}
