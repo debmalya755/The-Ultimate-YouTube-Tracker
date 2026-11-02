@@ -62,7 +62,6 @@ export default function AuthFlow(auth: Props) {
     user,
     hasPending,
     pendingEmail,
-    pendingCode,
     signUp,
     verifyCode,
     resendCode,
@@ -90,8 +89,8 @@ export default function AuthFlow(auth: Props) {
   const [ident, setIdent] = useState(remembered?.displayUsername ?? "");
   const [loginPass, setLoginPass] = useState("");
   const [rememberMe, setRememberMe] = useState(Boolean(remembered));
+  const [pin, setPin] = useState("");
 
-  const [code, setCode] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const firstRef = useRef<HTMLInputElement>(null);
@@ -148,15 +147,17 @@ export default function AuthFlow(auth: Props) {
       setStep(1);
       return;
     }
-    setCode("");
+    setPin("");
     setStep(3);
   };
 
-  const submitVerify = (e: FormEvent) => {
+  const submitVerify = async (e: FormEvent) => {
     e.preventDefault();
-    const res = verifyCode(code, rememberMe);
+    setBusy(true);
+    setErr(null);
+    const res = await verifyCode(pin, rememberMe);
+    setBusy(false);
     if (!res.ok) setErr(res.error ?? "Verification failed.");
-    // success → `user` is set → onDone fires via effect
   };
 
   const submitSignIn = async (e: FormEvent) => {
@@ -171,7 +172,6 @@ export default function AuthFlow(auth: Props) {
     setBusy(false);
     if (res.needsVerify) {
       setErr(null);
-      setCode("");
       setMode("signup");
       setStep(3);
       return;
@@ -378,7 +378,7 @@ export default function AuthFlow(auth: Props) {
                   ) : mailTaken ? (
                     <span className="text-blood">Already registered</span>
                   ) : (
-                    <span className="text-bone/20">We'll send a code</span>
+                    <span className="text-bone/20">We'll send a PIN</span>
                   )}
                 </p>
               </div>
@@ -527,7 +527,7 @@ export default function AuthFlow(auth: Props) {
                   onClick={submitSignUp}
                   className="group flex items-center gap-2.5 rounded-full bg-bone px-8 py-3.5 font-mono text-[9px] tracking-[0.3em] text-carbon uppercase transition-colors duration-300 hover:bg-blood hover:text-bone disabled:opacity-35"
                 >
-                  {busy ? "Creating…" : "Send code"}
+                  {busy ? "Sending…" : "Send PIN"}
                   <ArrowRight
                     className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5"
                     strokeWidth={2}
@@ -547,47 +547,39 @@ export default function AuthFlow(auth: Props) {
             exit={{ opacity: 0, y: -16 }}
             transition={{ duration: 0.5, ease: EASE }}
           >
-            <Head kicker="Step 3 of 3 — verification" title="Confirm email" />
+            <Head kicker="Step 3 of 3 — verification" title="Enter PIN" />
 
             <p className="mt-6 max-w-md text-sm leading-relaxed text-smoke">
-              A 6-digit code was issued for{" "}
-              <span className="text-bone">{pendingEmail ?? email}</span>. Enter it
-              below to activate the account.
+              We emailed a 6-character PIN to{" "}
+              <span className="text-bone">{pendingEmail ?? email}</span>. It uses
+              uppercase letters and numbers, lasts 10 minutes, and is not shown
+              here.
             </p>
 
-            {/* local mail relay — no backend exists to send real email */}
-            {pendingCode && (
-              <div className="mt-7 border border-bone/15 bg-black/40 p-5">
-                <p className="flex items-center gap-2.5 font-mono text-[9px] tracking-[0.35em] text-bone/45 uppercase">
-                  <Mail className="h-3.5 w-3.5 text-blood" strokeWidth={1.5} />
-                  Local mail relay — offline build
-                </p>
-                <p className="mt-4 font-display text-4xl tabular-nums tracking-[0.25em]">
-                  {pendingCode}
-                </p>
-                <p className="mt-3 font-mono text-[9px] tracking-[0.25em] text-bone/30 uppercase">
-                  This site has no server, so the code is delivered here. Expires
-                  in 10 minutes.
-                </p>
-              </div>
-            )}
+            <div className="mt-7 flex items-start gap-3 border border-bone/15 bg-black/40 p-5">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-blood" strokeWidth={1.5} />
+              <p className="font-mono text-[9px] leading-relaxed tracking-[0.25em] text-bone/45 uppercase">
+                Check inbox and spam. Ambiguous characters (0/O, 1/I) are never used.
+              </p>
+            </div>
 
             <form onSubmit={submitVerify} className="mt-8">
-              <label className={label} htmlFor="vf-code">
-                Verification code
+              <label className={label} htmlFor="vf-pin">
+                Verification PIN
               </label>
               <input
-                id="vf-code"
+                id="vf-pin"
                 ref={firstRef}
-                inputMode="numeric"
+                autoCapitalize="characters"
+                autoComplete="one-time-code"
                 maxLength={6}
-                value={code}
+                value={pin}
                 onChange={(e) => {
-                  setCode(e.target.value.replace(/\D/g, ""));
+                  setPin(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
                   setErr(null);
                 }}
-                placeholder="000000"
-                className="mt-3 w-full max-w-xs border-b border-bone/25 bg-transparent pb-3 text-center font-mono text-2xl tracking-[0.6em] text-bone caret-blood outline-none transition-colors duration-300 placeholder:text-bone/15 focus:border-bone/70"
+                placeholder="A3K7QX"
+                className="mt-3 w-full max-w-xs border-b border-bone/25 bg-transparent pb-3 text-center font-mono text-2xl tracking-[0.45em] text-bone caret-blood outline-none transition-colors duration-300 placeholder:text-bone/15 focus:border-bone/70"
               />
 
               {err && (
@@ -611,19 +603,23 @@ export default function AuthFlow(auth: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      resendCode();
-                      setCode("");
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
                       setErr(null);
+                      const r = await resendCode();
+                      setBusy(false);
+                      setPin("");
+                      if (!r.ok) setErr(r.error ?? "Could not resend.");
                     }}
                     className="font-mono text-[9px] tracking-[0.3em] text-bone/45 uppercase transition-colors duration-300 hover:text-bone"
                   >
-                    Resend code
+                    Resend PIN
                   </button>
                 </div>
                 <button
                   type="submit"
-                  disabled={code.length !== 6}
+                  disabled={busy || pin.length !== 6}
                   className="flex items-center gap-2.5 rounded-full bg-bone px-8 py-3.5 font-mono text-[9px] tracking-[0.3em] text-carbon uppercase transition-colors duration-300 hover:bg-blood hover:text-bone disabled:opacity-35"
                 >
                   <Check className="h-3.5 w-3.5" strokeWidth={2} />
@@ -638,7 +634,8 @@ export default function AuthFlow(auth: Props) {
       {/* security footnote */}
       <p className="mt-14 flex items-start gap-2.5 font-mono text-[9px] leading-relaxed tracking-[0.25em] text-bone/25 uppercase">
         <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-        Accounts are stored only in this browser. No data leaves your device.
+        Watch data stays in this browser. We email a 6-character PIN and never
+        show it on this page.
       </p>
 
       {/* cropper */}

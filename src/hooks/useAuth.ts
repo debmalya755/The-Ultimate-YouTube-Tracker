@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 /**
- * Local account system.
- *
- * NOTE: everything lives in this browser's localStorage. There is no server,
- * so password hashing here protects against casual inspection only — it is
- * NOT real authentication. See the security note in the UI.
+ * Accounts still live in this browser. A 6-character PIN (A–Z + 2–9) is
+ * emailed via Resend and checked on the server — never shown in the UI.
  */
 
 export interface Account {
@@ -45,14 +42,11 @@ export interface RememberedDevice {
   avatar?: string;
 }
 
-const CODE_TTL = 10 * 60 * 1000; // 10 minutes
-const MAX_ATTEMPTS = 5;
+const CODE_TTL = 10 * 60 * 1000;
 
 interface Pending {
   accountId: string;
-  code: string;
   expires: number;
-  attempts: number;
 }
 
 /* ------------------------------- utilities ------------------------------ */
@@ -69,11 +63,23 @@ function randomSalt() {
   return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 }
 
-/** 6-digit verification code from a CSPRNG */
-function randomCode() {
-  const b = new Uint32Array(1);
-  crypto.getRandomValues(b);
-  return String(b[0] % 1000000).padStart(6, "0");
+async function postJson<T extends { ok: boolean; error?: string }>(
+  url: string,
+  body: unknown
+): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json().catch(() => ({}))) as T;
+  if (!res.ok) {
+    return {
+      ok: false,
+      error: data.error || `Request failed (${res.status})`,
+    } as T;
+  }
+  return data;
 }
 
 /** SHA-256 where available, with a non-crypto fallback for insecure contexts */
@@ -217,7 +223,7 @@ export function useAuth() {
     [accounts]
   );
 
-  /** creates an unverified account and issues a code */
+  /** creates an unverified account and emails a verification link */
   const signUp = useCallback(
     async (draft: SignUpDraft): Promise<{ ok: boolean; error?: string }> => {
       const username = draft.username.trim().toLowerCase();
@@ -252,11 +258,20 @@ export function useAuth() {
       };
 
       persist([...accounts, account]);
+      const mailed = await postJson("/api/auth/send-code", {
+        email,
+        name: account.fullName,
+      });
+      if (!mailed.ok) {
+        persist(accounts);
+        return {
+          ok: false,
+          error: mailed.error ?? "Could not send the verification email.",
+        };
+      }
       savePending({
         accountId: account.id,
-        code: randomCode(),
         expires: Date.now() + CODE_TTL,
-        attempts: 0,
       });
       return { ok: true };
     },
@@ -275,20 +290,20 @@ export function useAuth() {
   }, []);
 
   const verifyCode = useCallback(
-    (entered: string, remember = false): { ok: boolean; error?: string } => {
+    async (
+      entered: string,
+      remember = false
+    ): Promise<{ ok: boolean; error?: string }> => {
       if (!pending) return { ok: false, error: "Nothing awaiting verification." };
-      if (Date.now() > pending.expires)
-        return { ok: false, error: "That code expired — request a new one." };
-      if (pending.attempts >= MAX_ATTEMPTS)
-        return { ok: false, error: "Too many attempts — request a new code." };
+      const account = accounts.find((a) => a.id === pending.accountId);
+      if (!account) return { ok: false, error: "That sign-up is no longer here." };
 
-      if (entered.trim() !== pending.code) {
-        const left = MAX_ATTEMPTS - (pending.attempts + 1);
-        savePending({ ...pending, attempts: pending.attempts + 1 });
-        return {
-          ok: false,
-          error: `Incorrect code — ${left} attempt${left === 1 ? "" : "s"} left.`,
-        };
+      const checked = await postJson("/api/auth/verify-code", {
+        email: account.email,
+        code: entered,
+      });
+      if (!checked.ok) {
+        return { ok: false, error: checked.error ?? "Verification failed." };
       }
 
       const list = accounts.map((a) =>
@@ -296,31 +311,36 @@ export function useAuth() {
       );
       persist(list);
       savePending(null);
-
-      const account = list.find((a) => a.id === pending.accountId) ?? null;
-      if (account) {
-        setUser(account);
+      const verified = list.find((a) => a.id === pending.accountId) ?? null;
+      if (verified) {
+        setUser(verified);
         try {
-          localStorage.setItem(S_KEY, account.id);
+          localStorage.setItem(S_KEY, verified.id);
         } catch {
           /* ignore */
         }
-        if (remember) rememberAccount(account);
+        if (remember) rememberAccount(verified);
       }
       return { ok: true };
     },
     [pending, accounts, persist, savePending, rememberAccount]
   );
 
-  const resendCode = useCallback(() => {
-    if (!pending) return;
-    savePending({
-      ...pending,
-      code: randomCode(),
-      expires: Date.now() + CODE_TTL,
-      attempts: 0,
+  const resendCode = useCallback(async (): Promise<{
+    ok: boolean;
+    error?: string;
+  }> => {
+    if (!pending) return { ok: false, error: "Nothing awaiting verification." };
+    const account = accounts.find((a) => a.id === pending.accountId);
+    if (!account) return { ok: false, error: "That sign-up is no longer here." };
+    const mailed = await postJson("/api/auth/send-code", {
+      email: account.email,
+      name: account.fullName,
     });
-  }, [pending, savePending]);
+    if (!mailed.ok) return mailed;
+    savePending({ ...pending, expires: Date.now() + CODE_TTL });
+    return { ok: true };
+  }, [pending, accounts, savePending]);
 
   const cancelPending = useCallback(() => {
     if (!pending) return;
@@ -346,11 +366,19 @@ export function useAuth() {
         return { ok: false, error: "Incorrect password." };
 
       if (!account.verified) {
+        const mailed = await postJson("/api/auth/send-code", {
+          email: account.email,
+          name: account.fullName,
+        });
+        if (!mailed.ok) {
+          return {
+            ok: false,
+            error: mailed.error ?? "Could not send a verification email.",
+          };
+        }
         savePending({
           accountId: account.id,
-          code: randomCode(),
           expires: Date.now() + CODE_TTL,
-          attempts: 0,
         });
         return { ok: false, needsVerify: true, error: "Email not verified yet." };
       }
@@ -395,7 +423,6 @@ export function useAuth() {
     pendingEmail: pending
       ? accounts.find((a) => a.id === pending.accountId)?.email ?? null
       : null,
-    pendingCode: pending?.code ?? null,
     pendingExpires: pending?.expires ?? null,
     hasPending: Boolean(pending),
     accountCount: accounts.length,
