@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Lock, LockOpen, Zap } from "lucide-react";
+import { ArrowRight, Lock, LockOpen } from "lucide-react";
 import Grain from "./Grain";
 import Montage from "./Montage";
 import { PASSKEY, SHOTS } from "../data/shots";
@@ -49,30 +49,18 @@ function Corner({ className }: { className: string }) {
 }
 
 /* ------------------------------------ gate ------------------------------------ */
-const GOD_KEY = "debos.godmode.v1";
-
 export default function Gate({
   onUnlock,
 }: {
-  /** `god` = skip the account wall and go straight to the tracker */
-  onUnlock: (god: boolean) => void;
+  onUnlock: () => void;
 }) {
-  // remembered between visits so the bypass stays sticky
-  const [god, setGod] = useState(() => {
-    try {
-      return localStorage.getItem(GOD_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
-
   useEffect(() => {
     try {
-      localStorage.setItem(GOD_KEY, god ? "1" : "0");
+      localStorage.removeItem("debos.godmode.v1");
     } catch {
       /* ignore */
     }
-  }, [god]);
+  }, []);
 
   const [value, setValue] = useState("");
   const [scene, setScene] = useState(0);
@@ -90,9 +78,9 @@ export default function Gate({
   // hold the "granted" frame, then hand off to the site
   useEffect(() => {
     if (!granted) return;
-    const t = setTimeout(() => onUnlock(god), 2400);
+    const t = setTimeout(() => onUnlock(), 2400);
     return () => clearTimeout(t);
-  }, [granted, onUnlock, god]);
+  }, [granted, onUnlock]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -344,52 +332,6 @@ export default function Gate({
                 </AnimatePresence>
               </div>
 
-              {/* ---- god-mode ---- */}
-              <motion.div
-                className="mt-9 flex flex-col items-center gap-3"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.9, duration: 0.8 }}
-              >
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={god}
-                  onClick={() => setGod((g) => !g)}
-                  className="group flex items-center gap-3"
-                >
-                  <span
-                    className={`relative flex h-5 w-10 shrink-0 items-center rounded-full border transition-colors duration-300 ${
-                      god
-                        ? "border-blood bg-blood/25"
-                        : "border-bone/25 bg-transparent"
-                    }`}
-                  >
-                    <span
-                      className={`absolute h-3 w-3 rounded-full transition-all duration-300 ${
-                        god
-                          ? "left-[22px] bg-blood"
-                          : "left-[4px] bg-bone/40 group-hover:bg-bone/70"
-                      }`}
-                    />
-                  </span>
-                  <span
-                    className={`flex items-center gap-2 font-mono text-[10px] tracking-[0.4em] uppercase transition-colors duration-300 ${
-                      god ? "text-blood" : "text-bone/40 group-hover:text-bone/70"
-                    }`}
-                  >
-                    <Zap
-                      className="h-3 w-3"
-                      strokeWidth={1.5}
-                      fill={god ? "currentColor" : "none"}
-                    />
-                    God-mode
-                  </span>
-                </button>
-                <p className="h-3 font-mono text-[9px] tracking-[0.3em] text-bone/25 uppercase">
-                  {god ? "Skips sign-in — straight to your tracker" : ""}
-                </p>
-              </motion.div>
             </motion.div>
           ) : (
             <motion.div
@@ -405,7 +347,7 @@ export default function Gate({
                 Access granted
               </p>
               <p className="mt-4 font-mono text-[10px] tracking-[0.45em] text-bone/60 uppercase">
-                {god ? "God-mode — bypassing sign-in" : "Welcome back, viewer"}
+                Welcome back, viewer
               </p>
               <motion.div
                 className="mt-8 h-px w-40 origin-center bg-blood"
