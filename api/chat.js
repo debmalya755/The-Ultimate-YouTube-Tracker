@@ -78,7 +78,7 @@ export default async function handler(req, res) {
       system_instruction: {
         parts: [
           {
-            text: `You are the in-app assistant on The Ultimate YouTube Tracker.
+            text: `You are the in-app assistant on DEB OS v0.
 You talk like a sharp editor: short, useful, no fluff.
 You can summarise YouTube videos when a URL is attached.
 You help with profiles, playlists, channels, streaks, and watch logging.

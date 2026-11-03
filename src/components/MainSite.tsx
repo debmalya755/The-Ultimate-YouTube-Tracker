@@ -25,6 +25,7 @@ import Analytics from "./Analytics";
 import { ProfileLogo } from "../data/profileLogos";
 import ProfileLock from "./ProfileLock";
 import GemmaCompanion from "./GemmaCompanion";
+import BrandMark from "./BrandMark";
 import { useProfiles } from "../hooks/useProfiles";
 import type { Chapter, Profile, YtChannel } from "../hooks/useProfiles";
 import { hashPassword, passwordMatches, randomSalt } from "../utils/password";
@@ -443,7 +444,7 @@ export default function MainSite({ onRelock }: MainSiteProps) {
               }}
               className="text-left font-display text-xl uppercase leading-none tracking-[0.08em]"
             >
-              YouTube<span className="text-blood">·</span>Tracker
+              <BrandMark />
             </button>
             <Clocks />
           </div>
@@ -1051,10 +1052,12 @@ export default function MainSite({ onRelock }: MainSiteProps) {
       {/* ----------------------------- footer ----------------------------- */}
       <footer className="border-t border-bone/10 px-6 pb-10 pt-20 md:px-12">
         <h2 className="text-outline text-center font-display text-[clamp(2.6rem,14vw,12rem)] uppercase leading-[0.85]">
-          Tracker
+          <BrandMark />
         </h2>
         <div className="mt-16 flex flex-col items-center justify-between gap-6 font-mono text-[9px] tracking-[0.3em] text-bone/40 uppercase sm:flex-row">
-          <p>© 2026 The Ultimate YouTube Tracker · All hours accounted</p>
+          <p>
+            © 2026 <BrandMark className="align-baseline" /> · All hours accounted
+          </p>
           <div className="flex items-center gap-5">
             <button
               type="button"

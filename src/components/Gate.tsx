@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Lock, LockOpen } from "lucide-react";
 import Grain from "./Grain";
+import BrandMark from "./BrandMark";
 import Montage from "./Montage";
 import { PASSKEY, SHOTS } from "../data/shots";
 
@@ -210,24 +211,13 @@ export default function Gate({
               <h1 className="text-center font-display uppercase leading-[0.94] tracking-[0.01em]">
                 <span className="block overflow-hidden">
                   <motion.span
-                    className="block text-[clamp(0.95rem,3.6vw,2.4rem)] tracking-[0.22em] text-bone/70"
+                    className="block text-[clamp(2.7rem,12vw,9rem)]"
                     variants={reveal}
                     initial="hidden"
                     animate="show"
                     custom={0}
                   >
-                    The Ultimate
-                  </motion.span>
-                </span>
-                <span className="block overflow-hidden">
-                  <motion.span
-                    className="block text-[clamp(2.7rem,12vw,9rem)]"
-                    variants={reveal}
-                    initial="hidden"
-                    animate="show"
-                    custom={1}
-                  >
-                    YouTube
+                    DEB OS
                   </motion.span>
                 </span>
                 <span className="block overflow-hidden">
@@ -236,12 +226,15 @@ export default function Gate({
                     variants={reveal}
                     initial="hidden"
                     animate="show"
-                    custom={2}
+                    custom={1}
                   >
-                    <span className="inline-flex items-baseline gap-[0.1em]">
-                      Tracker
+                    <span className="inline-flex items-baseline">
+                      <span className="text-[0.52em] tracking-[0.08em] text-bone/70">
+                        v
+                      </span>
+                      <span>0</span>
                       <span
-                        className="animate-blink inline-block h-[0.62em] w-[0.32em] bg-blood"
+                        className="animate-blink ml-[0.12em] inline-block h-[0.62em] w-[0.32em] bg-blood"
                         style={{ WebkitTextStroke: "0px transparent" }}
                       />
                     </span>
@@ -368,7 +361,7 @@ export default function Gate({
         transition={{ duration: granted ? 1.1 : 1.2, ease: EASE, delay: granted ? 0.65 : 0.15 }}
       >
         <p className="font-mono text-[9px] tracking-[0.6em] text-bone/35 uppercase">
-          The Ultimate YouTube Tracker
+          <BrandMark className="font-display text-sm uppercase" />
         </p>
       </motion.div>
       <motion.div
