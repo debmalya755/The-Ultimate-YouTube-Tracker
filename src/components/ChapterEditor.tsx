@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { fileToImageData } from "../hooks/useProfiles";
 import type { Chapter, ChapterDraft } from "../hooks/useProfiles";
+import { lookupYoutube } from "../utils/ytLookup";
 import { CHAPTER_COVER_COUNT, ChapterCover } from "../data/chapterCovers";
 
 const PER_PAGE = 24;
@@ -47,6 +48,7 @@ export default function ChapterEditor({
   const [name, setName] = useState(initial?.name ?? "");
   const [tag, setTag] = useState(initial?.tag ?? "");
   const [target, setTarget] = useState(String(initial?.targetHours ?? 6));
+  const [ytUrl, setYtUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -62,6 +64,36 @@ export default function ChapterEditor({
       window.removeEventListener("keydown", onKey);
     };
   }, [onCancel]);
+
+  const fetchVideo = async () => {
+    const q = ytUrl.trim();
+    if (!q) {
+      setErr("Paste a YouTube video URL first.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const data = await lookupYoutube(q);
+      if (!data.ok) {
+        setErr(data.error || "Lookup failed.");
+        return;
+      }
+      if (data.kind === "video") {
+        if (data.title) setName(data.title);
+        if (data.img) setImg(data.img);
+        if (data.channelTitle) setTag(data.channelTitle);
+      } else if (data.name) {
+        setName(data.name);
+        if (data.img) setImg(data.img);
+        if (data.tag) setTag(data.tag);
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Lookup failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const pickFile = async (file?: File) => {
     if (!file) return;
@@ -182,6 +214,21 @@ export default function ChapterEditor({
 
           {/* fields */}
           <div className="grid gap-6 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className={label} htmlFor="ch-yt">
+                YouTube video URL — auto title & thumbnail
+              </label>
+              <input
+                id="ch-yt"
+                className={field}
+                value={ytUrl}
+                placeholder="https://youtube.com/watch?v=…"
+                onChange={(e) => setYtUrl(e.target.value)}
+                onBlur={() => {
+                  if (ytUrl.trim()) void fetchVideo();
+                }}
+              />
+            </div>
             <div>
               <label className={label} htmlFor="ch-name">
                 Playlist name *

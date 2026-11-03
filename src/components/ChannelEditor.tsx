@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
-import { ImageUp, X } from "lucide-react";
+import { ImageUp, Sparkles, X } from "lucide-react";
 import { fileToImageData } from "../hooks/useProfiles";
 import type { YtChannel, YtChannelDraft } from "../hooks/useProfiles";
+import { lookupYoutube } from "../utils/ytLookup";
 
 const label =
   "block font-mono text-[9px] tracking-[0.35em] text-bone/45 uppercase";
@@ -37,6 +38,33 @@ export default function ChannelEditor({ initial, onCancel, onSave }: Props) {
       window.removeEventListener("keydown", onKey);
     };
   }, [onCancel]);
+
+  const fetchMeta = async (raw = url) => {
+    const q = raw.trim();
+    if (!q) {
+      setErr("Paste a channel URL or @handle first.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const data = await lookupYoutube(q);
+      if (!data.ok) {
+        setErr(data.error || "Lookup failed.");
+        return;
+      }
+      const ch = data.kind === "video" ? data.channel : data;
+      if (ch?.name) setName(ch.name);
+      if (ch?.tag) setTag(ch.tag);
+      if (ch?.img) setImg(ch.img);
+      if (ch?.url) setUrl(ch.url);
+      else if (data.url && data.kind === "channel") setUrl(data.url);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Lookup failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const pickFile = async (file?: File) => {
     if (!file) return;
@@ -153,15 +181,27 @@ export default function ChannelEditor({ initial, onCancel, onSave }: Props) {
           </div>
           <div>
             <label className={label} htmlFor="ch-url">
-              Channel URL
+              Channel URL — auto-fetch
             </label>
             <input
               id="ch-url"
               className={field}
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://youtube.com/@"
+              onBlur={() => {
+                if (url.trim()) void fetchMeta(url);
+              }}
+              placeholder="https://youtube.com/@handle or video URL"
             />
+            <button
+              type="button"
+              onClick={() => void fetchMeta()}
+              disabled={busy}
+              className="mt-3 flex items-center gap-2 font-mono text-[9px] tracking-[0.3em] text-bone/50 uppercase hover:text-blood disabled:opacity-40"
+            >
+              <Sparkles className="h-3 w-3" strokeWidth={1.5} />
+              {busy ? "Fetching…" : "Fetch name & photo"}
+            </button>
           </div>
 
           {err && (
