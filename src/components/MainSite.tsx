@@ -24,7 +24,6 @@ import ProfileDetail from "./ProfileDetail";
 import Analytics from "./Analytics";
 import { ProfileLogo } from "../data/profileLogos";
 import ProfileLock from "./ProfileLock";
-import GemmaCompanion from "./GemmaCompanion";
 import BrandMark from "./BrandMark";
 import { useProfiles } from "../hooks/useProfiles";
 import type { Chapter, Profile, YtChannel } from "../hooks/useProfiles";
@@ -1196,20 +1195,6 @@ export default function MainSite({ onRelock }: MainSiteProps) {
           />
         )}
       </AnimatePresence>
-
-      <GemmaCompanion
-        profiles={profiles}
-        chapters={chapters}
-        channels={ytChannels}
-        sessions={sessions}
-        stats={{
-          streak: stats.streak,
-          bestStreak: stats.bestStreak,
-          total: stats.total,
-          todayMinutes: stats.todayMinutes,
-          loggedToday: stats.loggedToday,
-        }}
-      />
     </div>
   );
 }
