@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Gate from "./components/Gate";
-import MainSite from "./components/MainSite";
+import OsShell from "./components/OsShell";
 import { useFullscreenToast } from "./hooks/useFullscreenToast";
 
 type Phase = "gate" | "site";
@@ -30,7 +30,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
-            <MainSite onRelock={() => setPhase("gate")} />
+            <OsShell onRelock={() => setPhase("gate")} />
           </motion.div>
         )}
       </AnimatePresence>
