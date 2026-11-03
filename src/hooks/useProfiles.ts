@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { hashPassword, randomSalt } from "../utils/password";
 
 /** A category and its code are chosen together once, then locked as a pair. */
 export interface Category {
@@ -218,6 +219,49 @@ export function useProfiles(uid: string = "anon") {
     setSessions(read(lKey, isSession));
     setHydrated(uid);
   }, [uid, gKey, sKey, chKey, cKey, lKey]);
+
+  const DEMO_ID = "s_demo_test";
+  const DEMO_FLAG = `debos.demo.v1:${uid}`;
+
+  useEffect(() => {
+    if (hydrated !== uid) return;
+    try {
+      if (localStorage.getItem(DEMO_FLAG) === "1") return;
+    } catch {
+      /* ignore */
+    }
+    let cancelled = false;
+    (async () => {
+      const salt = randomSalt();
+      const passwordHash = await hashPassword("241207", salt);
+      if (cancelled) return;
+      setProfiles((cur) => {
+        if (cur.some((p) => p.id === DEMO_ID)) return cur;
+        return [
+          ...cur,
+          {
+            id: DEMO_ID,
+            name: "Demo · Test",
+            tag: "QA",
+            code: "DEMO",
+            focus: "Try unlock, playlists, and Ask summaries",
+            cover: 41,
+            passwordHash,
+            passwordSalt: salt,
+            createdAt: Date.now(),
+          },
+        ];
+      });
+      try {
+        localStorage.setItem(DEMO_FLAG, "1");
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, uid, DEMO_FLAG]);
 
   /* Persistence lives in effects, not inside state updaters: updaters must be
      pure (StrictMode invokes them twice) and calling setError from one warns
