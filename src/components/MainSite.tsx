@@ -442,7 +442,7 @@ export default function MainSite({ onRelock }: MainSiteProps) {
                 setDetailId(null);
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
-              className="text-left font-display text-xl uppercase leading-none tracking-[0.08em]"
+              className="text-left font-display text-3xl uppercase leading-none tracking-[0.08em] md:text-4xl"
             >
               <BrandMark />
             </button>

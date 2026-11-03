@@ -208,38 +208,24 @@ export default function Gate({
                    Restricted — Authorized viewers only
               </motion.p>
 
-              <h1 className="text-center font-display uppercase leading-[0.94] tracking-[0.01em]">
-                <span className="block overflow-hidden">
-                  <motion.span
-                    className="block text-[clamp(2.7rem,12vw,9rem)]"
-                    variants={reveal}
-                    initial="hidden"
-                    animate="show"
-                    custom={0}
-                  >
-                    DEB OS
-                  </motion.span>
-                </span>
-                <span className="block overflow-hidden">
-                  <motion.span
-                    className="text-outline block text-[clamp(2.7rem,12vw,9rem)]"
-                    variants={reveal}
-                    initial="hidden"
-                    animate="show"
-                    custom={1}
-                  >
-                    <span className="inline-flex items-baseline">
-                      <span className="text-[0.52em] tracking-[0.08em] text-bone/70">
-                        v
-                      </span>
-                      <span>0</span>
-                      <span
-                        className="animate-blink ml-[0.12em] inline-block h-[0.62em] w-[0.32em] bg-blood"
-                        style={{ WebkitTextStroke: "0px transparent" }}
-                      />
-                    </span>
-                  </motion.span>
-                </span>
+              <h1 className="overflow-hidden text-center font-display uppercase leading-none tracking-[0.01em]">
+                <motion.span
+                  className="inline-flex items-baseline whitespace-nowrap text-[clamp(3.4rem,16vw,12rem)]"
+                  variants={reveal}
+                  initial="hidden"
+                  animate="show"
+                  custom={0}
+                >
+                  <span>DEB OS&nbsp;</span>
+                  <span className="text-[0.52em] tracking-[0.08em] text-bone/70">
+                    v
+                  </span>
+                  <span>0</span>
+                  <span
+                    className="animate-blink ml-[0.1em] inline-block h-[0.62em] w-[0.32em] bg-blood"
+                    style={{ WebkitTextStroke: "0px transparent" }}
+                  />
+                </motion.span>
               </h1>
 
               <motion.div
